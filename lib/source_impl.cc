@@ -88,6 +88,10 @@
 #include <redpitaya_source_c.h>
 #endif
 
+#ifdef ENABLE_XTRX
+#include <xtrx_source_c.h>
+#endif
+
 #include "arg_helpers.h"
 #include "source_impl.h"
 
@@ -162,6 +166,9 @@ source_impl::source_impl( const std::string &args )
 #endif
 #ifdef ENABLE_REDPITAYA
   dev_types.push_back("redpitaya");
+#endif
+#ifdef ENABLE_XTRX
+  dev_types.push_back("xtrx");
 #endif
   std::cerr << "gr-osmosdr "
             << GR_OSMOSDR_VERSION << " (" << GR_OSMOSDR_LIBVER << ") "
@@ -240,7 +247,10 @@ source_impl::source_impl( const std::string &args )
     BOOST_FOREACH( std::string dev, redpitaya_source_c::get_devices() )
       dev_list.push_back( dev );
 #endif
-
+#ifdef ENABLE_XTRX
+    BOOST_FOREACH( std::string dev, xtrx_source_c::get_devices() )
+      dev_list.push_back( dev );
+#endif
 //    std::cerr << std::endl;
 //    BOOST_FOREACH( std::string dev, dev_list )
 //      std::cerr << "'" << dev << "'" << std::endl;
@@ -360,6 +370,13 @@ source_impl::source_impl( const std::string &args )
 #ifdef ENABLE_REDPITAYA
     if ( dict.count("redpitaya") ) {
       redpitaya_source_c_sptr src = make_redpitaya_source_c( arg );
+      block = src; iface = src.get();
+    }
+#endif
+
+#ifdef ENABLE_XTRX
+    if ( dict.count("xtrx") ) {
+      xtrx_source_c_sptr src = make_xtrx_source_c( arg );
       block = src; iface = src.get();
     }
 #endif
