@@ -396,56 +396,27 @@ std::string xtrx_source_c::get_antenna( size_t chan )
   return s_ant_map_r.find(_ant)->second;
 }
 
-float dummy[32768];
-
 int xtrx_source_c::work (int noutput_items,
                          gr_vector_const_void_star &input_items,
                          gr_vector_void_star &output_items)
 {
   //std::cerr << "work(" << noutput_items << ")" << "\n";
+  static float dummy[65536];
 
   float* outdata = (float*)output_items[0];
-  /*if (_rema) {
-    *outdata++ = _rema_iq[0];
-    *outdata++ = _rema_iq[1];
-    --noutput_items;
-  }*/
+  float* outdata2 = dummy;
 
-  int res = xtrx_recv_sync(_xtrxdev, noutput_items * 2, outdata, dummy);
+  if (output_items.size() > 1) {
+      outdata2 =  (float*)output_items[1];
+  }
+
+  int res = xtrx_recv_sync(_xtrxdev, noutput_items * 2, outdata, outdata2);
   if (res) {
-    //std::cerr << "Got error: " << res << std::endl;
     std::stringstream message;
     message << "xtrx_recv_sync error: " << -res;
     throw std::runtime_error( message.str() );
   }
 
-#if 0
-  _rema = (noutput_items % 2) ? true : false;
-  int res = xtrx_recv_sync(_xtrxdev, noutput_items - (noutput_items % 2), outdata, dummy);
-  if (res) {
-    std::cerr << "Got error: " << res << std::endl;
-  }
-  if (_rema) {
-    int res = xtrx_recv_sync(_xtrxdev, 1, _rema_iq, NULL);
-    if (res) {
-      std::cerr << "Got REMA error: " << res << std::endl;
-    }
-
-    float* data = (float*)output_items[0];
-    data += 2 * (noutput_items - 1);
-
-    *outdata++ = _rema_iq[0];
-    *outdata++ = _rema_iq[1];
-  }
-#endif
-#if 0
-  for (unsigned i = 0; i < noutput_items / 2; i++) {
-    float* data = (float*)output_items[0];
-    data[2*i+1] = data[2*i] = rand();
-  }
-  usleep(1000);
-#endif
-  //std::cerr << "eow\n";
   return noutput_items;
 }
 
