@@ -67,6 +67,7 @@ xtrx_source_c::xtrx_source_c(const std::string &args) :
                                         sizeof(gr_complex))),
   _xtrxdev(NULL),
   _rate(0),
+  _master(0),
   _freq(0),
   _corr(0),
   _bandwidth(0),
@@ -91,6 +92,10 @@ xtrx_source_c::xtrx_source_c(const std::string &args) :
     }
   }
 
+  if (dict.count("master")) {
+    _master = boost::lexical_cast< double >( dict["master"]);
+  }
+
   _channels = parse_nchan(args);
 
 /*
@@ -103,17 +108,18 @@ xtrx_source_c::xtrx_source_c(const std::string &args) :
 
   std::cerr << args.c_str() << std::endl;
 
-  int loglevel = 2;
+  int loglevel = 4;
   if (dict.count("loglevel")) {
     loglevel = boost::lexical_cast< int >( dict["loglevel"] );
   }
 
   bool lmsreset = 0;
   if (dict.count("lmsreset")) {
-    loglevel = boost::lexical_cast< bool >( dict["lmsreset"] );
+    lmsreset = boost::lexical_cast< bool >( dict["lmsreset"] );
   }
 
   unsigned xtrxflag = (loglevel & XTRX_O_LOGLVL_MASK) | ((lmsreset) ? XTRX_O_RESET : 0);
+  std::cerr << "xtrx_source_c::xtrxflag = " << xtrxflag << std::endl;
   int res = xtrx_open("/dev/xtrx0", xtrxflag, &_xtrxdev);
   if (res) {
     std::stringstream message;
@@ -163,7 +169,7 @@ double xtrx_source_c::set_sample_rate( double rate )
 {
   std::cerr << "Set sample rate " << rate << std::endl;
 
-  int res = xtrx_set_samplerate(_xtrxdev, 0, rate, 0,
+  int res = xtrx_set_samplerate(_xtrxdev, _master, rate, 0,
                                 NULL, &_rate, NULL);
   if (res) {
     std::cerr << "Unable to set samplerate, error=" << res << std::endl;
@@ -254,14 +260,14 @@ osmosdr::gain_range_t xtrx_source_c::get_gain_range( const std::string & name, s
   osmosdr::gain_range_t range;
 
   if (name == "LNA") {
-    range += osmosdr::range_t( -30, -6, 3 );
-    range += osmosdr::range_t( -5, 0, 1 );
+    range += osmosdr::range_t( 0, 24,  3 );
+    range += osmosdr::range_t( 25, 30, 1 );
   } else if (name == "TIA") {
-    range += osmosdr::range_t( -12 );
-    range += osmosdr::range_t( -3 );
     range += osmosdr::range_t( 0 );
+    range += osmosdr::range_t( 9 );
+    range += osmosdr::range_t( 12 );
   } else if (name == "PGA") {
-    range += osmosdr::range_t( -12, 19, 1 );
+    range += osmosdr::range_t( -12.5, 12.5, 1 );
   }
 
   return range;
@@ -288,10 +294,10 @@ double xtrx_source_c::set_gain( double igain, const std::string & name, size_t c
   osmosdr::gain_range_t gains = xtrx_source_c::get_gain_range( name, chan );
   double gain = gains.clip(igain);
   double actual_gain;
-
-  std::cerr << "Set gain " << name << ": " << igain << std::endl;
-
   xtrx_gain_type_t gt = get_gain_type(name);
+
+  std::cerr << "Set gain " << name << " (" << gt << "): " << igain << std::endl;
+
   int res = xtrx_set_gain(_xtrxdev, /*(chan == 0) ? XTRX_CH_A : XTRX_CH_B*/ XTRX_CH_AB, gt, gain, &actual_gain);
   if (res) {
     std::cerr << "Unable to set gain `" << name.c_str() << "`; err=" << res << std::endl;
@@ -332,7 +338,14 @@ double xtrx_source_c::set_bandwidth( double bandwidth, size_t chan )
 {
   std::cerr << "Set bandwidth " << bandwidth << " chan " << chan << std::endl;
 
-  int res = xtrx_tune_rx_bandwidth(_xtrxdev, XTRX_CH_AB, bandwidth, &_bandwidth);
+  if (bandwidth <= 0.0) {
+      bandwidth = get_sample_rate() * 0.75;
+      if (bandwidth < 1.4e6) {
+          bandwidth = 1.4e6;
+      }
+  }
+
+  int res = xtrx_tune_rx_bandwidth(_xtrxdev, (chan == 0) ? XTRX_CH_A : XTRX_CH_B, bandwidth, &_bandwidth);
   if (res) {
     std::cerr << "Can't set bandwidth: " << res << std::endl;
   }

@@ -92,6 +92,7 @@ private:
   struct xtrx_dev* _xtrxdev;
 
   double _rate;
+  double _master;
   double _freq;
   double _corr;
   double _bandwidth;
