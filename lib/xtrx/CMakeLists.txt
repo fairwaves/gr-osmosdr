@@ -28,6 +28,7 @@ include_directories(
 
 set(xtrx_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/xtrx_source_c.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/xtrx_sink_c.cc
 )
 
 ########################################################################
