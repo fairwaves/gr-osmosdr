@@ -36,7 +36,6 @@
 
 using namespace boost::assign;
 
-
 xtrx_sink_c_sptr make_xtrx_sink_c(const std::string &args)
 {
   return gnuradio::get_initial_sptr(new xtrx_sink_c(args));
@@ -128,15 +127,22 @@ xtrx_sink_c::xtrx_sink_c(const std::string &args) :
     throw std::runtime_error( message.str() );
   }
 
+  if (dict.count("refclk")) {
+	xtrx_set_ref_clk(_xtrxdev, boost::lexical_cast< unsigned >( dict["refclk"] ), XTRX_CLKSRC_INT);
+  }
+
   std::cerr << "xtrx_sink_c::xtrx_sink_c()" << std::endl;
+  set_alignment(32);
+  set_output_multiple(1024);
 }
 
 xtrx_sink_c::~xtrx_sink_c()
 {
   std::cerr << "xtrx_sink_c::~xtrx_sink_c()" << std::endl;
-
-  if (_xtrxdev)
+  if (_xtrxdev) {
     xtrx_close(_xtrxdev);
+    _xtrxdev = NULL;
+  }
 }
 
 std::string xtrx_sink_c::name()
@@ -156,7 +162,7 @@ std::vector<std::string> xtrx_sink_c::get_devices( bool fake )
 
 size_t xtrx_sink_c::get_num_channels( void )
 {
-  return output_signature()->max_streams();
+  return input_signature()->max_streams();
 }
 
 osmosdr::meta_range_t xtrx_sink_c::get_sample_rates( void )
@@ -371,7 +377,7 @@ int xtrx_sink_c::work (int noutput_items,
                          gr_vector_const_void_star &input_items,
                          gr_vector_void_star &output_items)
 {
-  std::cerr << "tx_work(" << noutput_items << ")" << "\n";
+  //std::cerr << "tx_work(" << noutput_items << ")" << "\n";
   const float* indata = (const float*)input_items[0];
   const float* indata2 = dummy;
 
@@ -379,23 +385,43 @@ int xtrx_sink_c::work (int noutput_items,
       indata2 =  (float*)input_items[1];
   }
 
-  int res = xtrx_send_burst_sync(_xtrxdev, _ts, noutput_items, indata, indata2);
-  if (res) {
-    std::stringstream message;
-    message << "xtrx_send_burst_sync error: " << -res;
-    throw std::runtime_error( message.str() );
-  }
+  // Hack send using small bursts
+  int remaining = noutput_items;
+  unsigned off = 0;
+  do {
+    int burstsz = remaining;
+    if (burstsz > 1024) {
+      burstsz = 1024;
+    }
+    remaining -= burstsz;
 
-  _ts += 2*noutput_items;
+    //std::cerr << "tx_work(REM=" << remaining << " TS=" << _ts << ")" << std::endl;
+    int res = xtrx_send_burst_sync(_xtrxdev, _ts, 2*burstsz, indata2 + 2*off, indata + 2*off);
+    if (res) {
+      std::cerr << "Err: " << res << std::endl;
+
+      std::stringstream message;
+      message << "xtrx_send_burst_sync error: " << -res;
+      throw std::runtime_error( message.str() );
+    }
+
+    _ts += burstsz;
+    off += burstsz;
+  } while (remaining > 0);
   //_ts
-  return noutput_items;
+
+  consume(0, noutput_items);
+  if (input_items.size() > 1) {
+    consume(1, noutput_items);
+  }
+  return 0;
 }
 
 bool xtrx_sink_c::start()
 {
   //TODO:
   std::cerr << "xtrx_sink_c::start(otw=" << _otw << ")" << std::endl;
-  int res = xtrx_run(_xtrxdev, XTRX_TX, _otw, /*(_channels == 1) ? XTRX_CH_A :*/ XTRX_CH_AB , XTRX_IQ_FLOAT32, 0);
+  int res = xtrx_run(_xtrxdev, XTRX_TX, _otw, /*(_channels == 1) ? XTRX_CH_A :*/ XTRX_CH_AB , XTRX_IQ_FLOAT32, 0, 0);
   if (res) {
     std::cerr << "Got error: " << res << std::endl;
   }

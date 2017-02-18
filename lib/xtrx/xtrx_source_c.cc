@@ -128,6 +128,8 @@ xtrx_source_c::xtrx_source_c(const std::string &args) :
   }
 
   std::cerr << "xtrx_source_c::xtrx_source_c()" << std::endl;
+  set_alignment(32);
+  set_output_multiple(4096);
 }
 
 xtrx_source_c::~xtrx_source_c()
@@ -359,14 +361,14 @@ double xtrx_source_c::get_bandwidth( size_t chan )
 
 
 static const std::map<std::string, xtrx_antenna_t> s_ant_map = boost::assign::map_list_of
-    ("RXW", XTRX_RX_W)
     ("RXL", XTRX_RX_L)
     ("RXH", XTRX_RX_H)
+    ("RXW", XTRX_RX_W)
 ;
 static const std::map<xtrx_antenna_t, std::string> s_ant_map_r = boost::assign::map_list_of
-    (XTRX_RX_W, "RXW")
     (XTRX_RX_L, "RXL")
     (XTRX_RX_H, "RXH")
+    (XTRX_RX_W, "RXW")
 ;
 
 static xtrx_antenna_t get_ant_type(const std::string& name)
@@ -382,7 +384,7 @@ static xtrx_antenna_t get_ant_type(const std::string& name)
 }
 
 static const std::vector<std::string> s_ant_list = boost::assign::list_of
-    ("RXW")("RXL")("RXH")
+    ("RXL")("RXH")("RXW")
 ;
 
 
@@ -437,7 +439,7 @@ bool xtrx_source_c::start()
 {
   //TODO:
   std::cerr << "xtrx_source_c::start(otw=" << _otw << ")" << std::endl;
-  int res = xtrx_run(_xtrxdev, XTRX_RX, _otw, /*(_channels == 1) ? XTRX_CH_A :*/ XTRX_CH_AB , XTRX_IQ_FLOAT32, 0);
+  int res = xtrx_run(_xtrxdev, XTRX_RX, _otw, /*(_channels == 1) ? XTRX_CH_A :*/ XTRX_CH_AB , XTRX_IQ_FLOAT32, 0, 65536);
   if (res) {
     std::cerr << "Got error: " << res << std::endl;
   }
