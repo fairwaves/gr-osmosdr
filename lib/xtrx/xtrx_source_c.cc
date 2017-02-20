@@ -127,6 +127,10 @@ xtrx_source_c::xtrx_source_c(const std::string &args) :
     throw std::runtime_error( message.str() );
   }
 
+  if (dict.count("refclk")) {
+	xtrx_set_ref_clk(_xtrxdev, boost::lexical_cast< unsigned >( dict["refclk"] ), XTRX_CLKSRC_INT);
+  }
+
   std::cerr << "xtrx_source_c::xtrx_source_c()" << std::endl;
   set_alignment(32);
   set_output_multiple(4096);
